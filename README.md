@@ -148,7 +148,7 @@ src/
    netlify deploy --prod
    ```
 
-Live Demo: [Patient Management App](https://your-app-url.netlify.app)
+Live Demo: [Patient Management App](https://heartfelt-fenglisu-130438.netlify.app/patients)
 
 ## Testing
 
