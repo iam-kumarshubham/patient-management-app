@@ -64,10 +64,10 @@ export class PatientListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadPatients();
-    this.patientService.getPatients().subscribe(patients => {
-      this.dataSource.data = patients;
-      this.isLoading = false;
+    this.patientService.databaseService.isDatabaseReady().subscribe(isReady => {
+      if (isReady) {
+        this.loadPatients();
+      }
     });
   }
 

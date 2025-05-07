@@ -9,21 +9,17 @@ import { BehaviorSubject, Observable } from 'rxjs';
 export class PatientService {
   private patientsSubject = new BehaviorSubject<Patient[]>([]);
 
-  constructor(private dbService: DatabaseService) {
+  constructor(public databaseService: DatabaseService) {
     this.loadPatients();
   }
 
   private async loadPatients() {
-    this.dbService.isDatabaseReady().subscribe(async ready => {
-      if (ready) {
-        try {
-          const patients = await this.dbService.getAllPatients();
-          this.patientsSubject.next(patients);
-        } catch (err) {
-          console.error('Error loading patients:', err);
-        }
-      }
-    });
+    try {
+      const patients = await this.databaseService.getAllPatients();
+      this.patientsSubject.next(patients);
+    } catch (err) {
+      console.error('Error loading patients:', err);
+    }
   }
 
   getPatients(): Observable<Patient[]> {
@@ -32,7 +28,7 @@ export class PatientService {
 
   async getPatient(id: number): Promise<Patient | undefined> {
     try {
-      return await this.dbService.getPatient(id);
+      return await this.databaseService.getPatient(id);
     } catch (error) {
       console.error('Error getting patient:', error);
       throw error;
@@ -41,7 +37,7 @@ export class PatientService {
 
   async createPatient(patient: Omit<Patient, 'id'>): Promise<void> {
     try {
-      await this.dbService.addPatient(patient);
+      await this.databaseService.addPatient(patient);
       await this.loadPatients();
     } catch (error) {
       console.error('Error creating patient:', error);
@@ -51,7 +47,7 @@ export class PatientService {
 
   async updatePatient(id: number, patient: Omit<Patient, 'id'>): Promise<void> {
     try {
-      await this.dbService.updatePatient(id, patient);
+      await this.databaseService.updatePatient(id, patient);
       await this.loadPatients();
     } catch (error) {
       console.error('Error updating patient:', error);
@@ -61,7 +57,7 @@ export class PatientService {
 
   async deletePatient(id: number): Promise<void> {
     try {
-      await this.dbService.deletePatient(id);
+      await this.databaseService.deletePatient(id);
       await this.loadPatients();
     } catch (error) {
       console.error('Error deleting patient:', error);
@@ -71,7 +67,7 @@ export class PatientService {
 
   async getAllPatients(): Promise<Patient[]> {
     try {
-      return await this.dbService.getAllPatients();
+      return await this.databaseService.getAllPatients();
     } catch (error) {
       console.error('Error getting patients:', error);
       throw error;
@@ -80,7 +76,7 @@ export class PatientService {
 
   async searchPatients(searchTerm: string): Promise<Patient[]> {
     try {
-      return await this.dbService.searchPatients(searchTerm);
+      return await this.databaseService.searchPatients(searchTerm);
     } catch (error) {
       console.error('Error searching patients:', error);
       throw error;
