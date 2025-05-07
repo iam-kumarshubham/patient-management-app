@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import initSqlJs from 'sql.js';
+declare const initSqlJs: any;
 import { BehaviorSubject } from 'rxjs';
 
 @Injectable({
@@ -16,7 +16,7 @@ export class DatabaseService {
   async initDatabase() {
     try {
       const SQL = await initSqlJs({
-        locateFile: file => `https://sql.js.org/dist/${file}`
+        locateFile: (file: string) => `assets/${file}`,
       });
       this.db = new SQL.Database();
       
@@ -47,9 +47,47 @@ export class DatabaseService {
     return this.dbReady.asObservable();
   }
 
+  isInitialized(): boolean {
+    return this.dbReady.value;
+  }
+
+  closeDatabase() {
+    if (this.db) {
+      this.saveToStorage(); // Save current state before closing
+      this.db.close();
+      this.db = null;
+      this.dbReady.next(false);
+    }
+  }
+
   executeQuery(query: string, params: any[] = []): any[] {
+    if (!this.db) {
+      throw new Error('Database is not initialized');
+    }
+
     try {
-      const result = this.db.exec(query, params);
+      let result;
+      if (query.trim().toUpperCase().startsWith('SELECT')) {
+        // For SELECT queries, use db.exec to get results
+        const execResult = this.db.exec(query, params);
+        if (execResult.length > 0) {
+          // Convert column/value format to array of objects
+          const columns = execResult[0].columns;
+          result = execResult[0].values.map((row: any[]) => {
+            const obj: any = {};
+            columns.forEach((col: string, i: number) => {
+              obj[col] = row[i];
+            });
+            return obj;
+          });
+        } else {
+          result = [];
+        }
+      } else {
+        // For INSERT, UPDATE, DELETE queries, use db.run
+        this.db.run(query, params);
+        result = [];
+      }
       return result;
     } catch (err) {
       console.error('Error executing query:', err);
@@ -85,7 +123,7 @@ export class DatabaseService {
     if (data) {
       try {
         const SQL = await initSqlJs({
-          locateFile: file => `https://sql.js.org/dist/${file}`
+          locateFile: (file: string) => `https://sql.js.org/dist/${file}`
         });
 
         const response = await fetch(data);

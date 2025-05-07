@@ -44,7 +44,17 @@ export class PatientService {
     return this.patientsSubject.asObservable();
   }
 
-  addPatient(patient: Patient): Promise<void> {
+  getPatient(id: string): Observable<Patient | undefined> {
+    return new Observable<Patient | undefined>(observer => {
+      this.getPatients().subscribe(patients => {
+        const patient = patients.find(p => p.id === parseInt(id));
+        observer.next(patient);
+        observer.complete();
+      });
+    });
+  }
+
+  createPatient(patient: Omit<Patient, 'id'>): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         const now = new Date().toISOString();
@@ -77,10 +87,11 @@ export class PatientService {
     });
   }
 
-  updatePatient(patient: Patient): Promise<void> {
+  updatePatient(id: string, patient: Omit<Patient, 'id'>): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (!patient.id) {
-        reject(new Error('Patient ID is required for update'));
+      const patientId = parseInt(id);
+      if (isNaN(patientId)) {
+        reject(new Error('Invalid patient ID'));
         return;
       }
 
@@ -108,7 +119,7 @@ export class PatientService {
           patient.email,
           patient.address,
           now,
-          patient.id
+          patientId
         ]);
 
         this.dbService.saveToStorage();
