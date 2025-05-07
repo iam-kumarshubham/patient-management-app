@@ -36,7 +36,7 @@
       <mat-form-field>
         <mat-label>Gender</mat-label>
         <mat-select formControlName="gender">
-          @for (option of genderOptions; track option) {
+          @for (option of genders; track option) {
             <mat-option [value]="option">{{option}}</mat-option>
           }
         </mat-select>

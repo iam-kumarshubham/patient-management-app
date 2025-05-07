@@ -1,42 +1,41 @@
 import { Injectable } from '@angular/core';
-declare const initSqlJs: any;
 import { BehaviorSubject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
 })
 export class DatabaseService {
-  private db: any;
+  private dbName = 'patientDB';
+  private dbVersion = 1;
+  private db: IDBDatabase | null = null;
   private dbReady = new BehaviorSubject<boolean>(false);
 
   constructor() {
     this.initDatabase();
   }
 
-  async initDatabase() {
+  private async initDatabase() {
     try {
-      const SQL = await initSqlJs({
-        locateFile: (file: string) => `assets/${file}`,
-      });
-      this.db = new SQL.Database();
-      
-      // Create patients table
-      this.db.run(`
-        CREATE TABLE IF NOT EXISTS patients (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          firstName TEXT NOT NULL,
-          lastName TEXT NOT NULL,
-          dateOfBirth TEXT NOT NULL,
-          gender TEXT NOT NULL,
-          contactNumber TEXT NOT NULL,
-          email TEXT NOT NULL,
-          address TEXT NOT NULL,
-          createdAt TEXT NOT NULL,
-          updatedAt TEXT NOT NULL
-        )
-      `);
+      const request = indexedDB.open(this.dbName, this.dbVersion);
 
-      this.dbReady.next(true);
+      request.onerror = (event) => {
+        console.error('Failed to open database:', event);
+        this.dbReady.next(false);
+      };
+
+      request.onsuccess = (event) => {
+        this.db = (event.target as IDBOpenDBRequest).result;
+        this.dbReady.next(true);
+      };
+
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains('patients')) {
+          const store = db.createObjectStore('patients', { keyPath: 'id', autoIncrement: true });
+          store.createIndex('email', 'email', { unique: true });
+          store.createIndex('lastName', 'lastName', { unique: false });
+        }
+      };
     } catch (err) {
       console.error('Failed to initialize database:', err);
       this.dbReady.next(false);
@@ -51,91 +50,103 @@ export class DatabaseService {
     return this.dbReady.value;
   }
 
-  closeDatabase() {
-    if (this.db) {
-      this.saveToStorage(); // Save current state before closing
-      this.db.close();
-      this.db = null;
-      this.dbReady.next(false);
-    }
-  }
-
-  executeQuery(query: string, params: any[] = []): any[] {
+  async addPatient(patient: any): Promise<number> {
     if (!this.db) {
       throw new Error('Database is not initialized');
     }
 
-    try {
-      let result;
-      if (query.trim().toUpperCase().startsWith('SELECT')) {
-        // For SELECT queries, use db.exec to get results
-        const execResult = this.db.exec(query, params);
-        if (execResult.length > 0) {
-          // Convert column/value format to array of objects
-          const columns = execResult[0].columns;
-          result = execResult[0].values.map((row: any[]) => {
-            const obj: any = {};
-            columns.forEach((col: string, i: number) => {
-              obj[col] = row[i];
-            });
-            return obj;
-          });
-        } else {
-          result = [];
-        }
-      } else {
-        // For INSERT, UPDATE, DELETE queries, use db.run
-        this.db.run(query, params);
-        result = [];
-      }
-      return result;
-    } catch (err) {
-      console.error('Error executing query:', err);
-      throw err;
-    }
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['patients'], 'readwrite');
+      const store = transaction.objectStore('patients');
+
+      const request = store.add({
+        ...patient,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      request.onsuccess = () => resolve(request.result as number);
+      request.onerror = () => reject(request.error);
+    });
   }
 
-  getDatabase() {
-    return this.db;
+  async updatePatient(id: number, patient: any): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database is not initialized');
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['patients'], 'readwrite');
+      const store = transaction.objectStore('patients');
+
+      const request = store.put({
+        ...patient,
+        id,
+        updatedAt: new Date().toISOString()
+      });
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
   }
 
-  // Save database state to localStorage
-  saveToStorage() {
-    if (this.db) {
-      const data = this.db.export();
-      const buffer = new Uint8Array(data);
-      const blob = new Blob([buffer.buffer], { type: 'application/x-sqlite3' });
-      const reader = new FileReader();
-      
-      reader.onload = () => {
-        if (reader.result) {
-          localStorage.setItem('patientDB', reader.result as string);
-        }
-      };
-      
-      reader.readAsDataURL(blob);
+  async deletePatient(id: number): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database is not initialized');
     }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['patients'], 'readwrite');
+      const store = transaction.objectStore('patients');
+      const request = store.delete(id);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
   }
 
-  // Load database state from localStorage
-  async loadFromStorage() {
-    const data = localStorage.getItem('patientDB');
-    if (data) {
-      try {
-        const SQL = await initSqlJs({
-          locateFile: (file: string) => `https://sql.js.org/dist/${file}`
-        });
-
-        const response = await fetch(data);
-        const arrayBuffer = await response.arrayBuffer();
-        const uInt8Array = new Uint8Array(arrayBuffer);
-        
-        this.db = new SQL.Database(uInt8Array);
-        this.dbReady.next(true);
-      } catch (err) {
-        console.error('Error loading database from storage:', err);
-        this.initDatabase(); // Fallback to creating new database
-      }
+  async getPatient(id: number): Promise<any> {
+    if (!this.db) {
+      throw new Error('Database is not initialized');
     }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['patients'], 'readonly');
+      const store = transaction.objectStore('patients');
+      const request = store.get(id);
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async getAllPatients(): Promise<any[]> {
+    if (!this.db) {
+      throw new Error('Database is not initialized');
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['patients'], 'readonly');
+      const store = transaction.objectStore('patients');
+      const request = store.getAll();
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async searchPatients(query: string): Promise<any[]> {
+    if (!this.db) {
+      throw new Error('Database is not initialized');
+    }
+
+    const patients = await this.getAllPatients();
+    const searchTerm = query.toLowerCase();
+
+    return patients.filter(patient => 
+      patient.firstName.toLowerCase().includes(searchTerm) ||
+      patient.lastName.toLowerCase().includes(searchTerm) ||
+      patient.email.toLowerCase().includes(searchTerm)
+    );
   }
 }

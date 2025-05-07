@@ -7,7 +7,14 @@
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
-          "style": "scss"
+          "style": "scss",
+          "standalone": true
+        },
+        "@schematics/angular:directive": {
+          "standalone": true
+        },
+        "@schematics/angular:pipe": {
+          "standalone": true
         }
       },
       "root": "",
@@ -22,7 +29,7 @@
             },
             "outputPath": "dist/patient-management-app",
             "index": "src/index.html",
-            "browser": "src/main.ts",
+            "main": "src/main.ts",
             "polyfills": [
               "zone.js"
             ],
@@ -78,7 +85,7 @@
           "defaultConfiguration": "development"
         },
         "extract-i18n": {
-          "builder": "@angular-devkit/build-angular:extract-i18n"
+          "builder": "@angular-builders/custom-webpack:extract-i18n"
         },
         "test": {
           "builder": "@angular-builders/custom-webpack:karma",
@@ -105,5 +112,8 @@
         }
       }
     }
+  },
+  "cli": {
+    "analytics": "11d03ec6-2b68-4b7a-ba01-340795e0dc3f"
   }
 }

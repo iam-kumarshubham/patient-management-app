@@ -13,26 +13,12 @@ export class PatientService {
     this.loadPatients();
   }
 
-  private loadPatients() {
-    this.dbService.isDatabaseReady().subscribe(ready => {
+  private async loadPatients() {
+    this.dbService.isDatabaseReady().subscribe(async ready => {
       if (ready) {
         try {
-          const result = this.dbService.executeQuery('SELECT * FROM patients');
-          if (result.length > 0) {
-            const patients = result[0].values.map((row: any[]) => ({
-              id: row[0],
-              firstName: row[1],
-              lastName: row[2],
-              dateOfBirth: row[3],
-              gender: row[4],
-              contactNumber: row[5],
-              email: row[6],
-              address: row[7],
-              createdAt: row[8],
-              updatedAt: row[9]
-            }));
-            this.patientsSubject.next(patients);
-          }
+          const patients = await this.dbService.getAllPatients();
+          this.patientsSubject.next(patients);
         } catch (err) {
           console.error('Error loading patients:', err);
         }
@@ -44,109 +30,60 @@ export class PatientService {
     return this.patientsSubject.asObservable();
   }
 
-  getPatient(id: string): Observable<Patient | undefined> {
-    return new Observable<Patient | undefined>(observer => {
-      this.getPatients().subscribe(patients => {
-        const patient = patients.find(p => p.id === parseInt(id));
-        observer.next(patient);
-        observer.complete();
-      });
-    });
+  async getPatient(id: number): Promise<Patient | undefined> {
+    try {
+      return await this.dbService.getPatient(id);
+    } catch (error) {
+      console.error('Error getting patient:', error);
+      throw error;
+    }
   }
 
-  createPatient(patient: Omit<Patient, 'id'>): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        const now = new Date().toISOString();
-        const query = `
-          INSERT INTO patients (
-            firstName, lastName, dateOfBirth, gender,
-            contactNumber, email, address, createdAt, updatedAt
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        
-        this.dbService.executeQuery(query, [
-          patient.firstName,
-          patient.lastName,
-          patient.dateOfBirth,
-          patient.gender,
-          patient.contactNumber,
-          patient.email,
-          patient.address,
-          now,
-          now
-        ]);
-
-        this.dbService.saveToStorage();
-        this.loadPatients();
-        resolve();
-      } catch (err) {
-        console.error('Error adding patient:', err);
-        reject(err);
-      }
-    });
+  async createPatient(patient: Omit<Patient, 'id'>): Promise<void> {
+    try {
+      await this.dbService.addPatient(patient);
+      await this.loadPatients();
+    } catch (error) {
+      console.error('Error creating patient:', error);
+      throw error;
+    }
   }
 
-  updatePatient(id: string, patient: Omit<Patient, 'id'>): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const patientId = parseInt(id);
-      if (isNaN(patientId)) {
-        reject(new Error('Invalid patient ID'));
-        return;
-      }
-
-      try {
-        const now = new Date().toISOString();
-        const query = `
-          UPDATE patients SET
-            firstName = ?,
-            lastName = ?,
-            dateOfBirth = ?,
-            gender = ?,
-            contactNumber = ?,
-            email = ?,
-            address = ?,
-            updatedAt = ?
-          WHERE id = ?
-        `;
-
-        this.dbService.executeQuery(query, [
-          patient.firstName,
-          patient.lastName,
-          patient.dateOfBirth,
-          patient.gender,
-          patient.contactNumber,
-          patient.email,
-          patient.address,
-          now,
-          patientId
-        ]);
-
-        this.dbService.saveToStorage();
-        this.loadPatients();
-        resolve();
-      } catch (err) {
-        console.error('Error updating patient:', err);
-        reject(err);
-      }
-    });
+  async updatePatient(id: number, patient: Omit<Patient, 'id'>): Promise<void> {
+    try {
+      await this.dbService.updatePatient(id, patient);
+      await this.loadPatients();
+    } catch (error) {
+      console.error('Error updating patient:', error);
+      throw error;
+    }
   }
 
-  deletePatient(id: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        this.dbService.executeQuery('DELETE FROM patients WHERE id = ?', [id]);
-        this.dbService.saveToStorage();
-        this.loadPatients();
-        resolve();
-      } catch (err) {
-        console.error('Error deleting patient:', err);
-        reject(err);
-      }
-    });
+  async deletePatient(id: number): Promise<void> {
+    try {
+      await this.dbService.deletePatient(id);
+      await this.loadPatients();
+    } catch (error) {
+      console.error('Error deleting patient:', error);
+      throw error;
+    }
   }
 
-  executeCustomQuery(query: string): any[] {
-    return this.dbService.executeQuery(query);
+  async getAllPatients(): Promise<Patient[]> {
+    try {
+      return await this.dbService.getAllPatients();
+    } catch (error) {
+      console.error('Error getting patients:', error);
+      throw error;
+    }
+  }
+
+  async searchPatients(searchTerm: string): Promise<Patient[]> {
+    try {
+      return await this.dbService.searchPatients(searchTerm);
+    } catch (error) {
+      console.error('Error searching patients:', error);
+      throw error;
+    }
   }
 }

@@ -1,19 +1,22 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl } from '@angular/forms';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { Patient } from '../../models/patient.model';
 import { PatientService } from '../../services/patient.service';
+import { Patient } from '../../models/patient.model';
 
 @Component({
   selector: 'app-patient-form',
+  templateUrl: './patient-form.component.html',
+  styleUrls: ['./patient-form.component.scss'],
   standalone: true,
   imports: [
     CommonModule,
@@ -21,95 +24,103 @@ import { PatientService } from '../../services/patient.service';
     RouterModule,
     MatFormFieldModule,
     MatInputModule,
+    MatButtonModule,
     MatSelectModule,
     MatDatepickerModule,
     MatNativeDateModule,
-    MatButtonModule,
+    MatIconModule,
     MatSnackBarModule
-  ],
-  templateUrl: './patient-form.component.html',
-  styleUrl: './patient-form.component.scss'
+  ]
 })
 export class PatientFormComponent implements OnInit {
   patientForm: FormGroup;
   isEditMode = false;
-  patientId: string | null = null;
-  genderOptions = ['Male', 'Female', 'Other'];
+  patientId: number | null = null;
+  genders = ['Male', 'Female', 'Other'];
 
   constructor(
-    private fb: FormBuilder,
+    private formBuilder: FormBuilder,
     private patientService: PatientService,
     private router: Router,
     private route: ActivatedRoute,
     private snackBar: MatSnackBar
   ) {
-    this.patientForm = this.fb.group({
-      firstName: ['', [Validators.required]],
-      lastName: ['', [Validators.required]],
-      dateOfBirth: [null, [Validators.required]],
-      gender: ['', [Validators.required]],
+    this.patientForm = this.formBuilder.group({
+      firstName: ['', Validators.required],
+      lastName: ['', Validators.required],
+      dateOfBirth: ['', Validators.required],
+      gender: ['', Validators.required],
       contactNumber: ['', [Validators.required, Validators.pattern('^[0-9]{10}$')]],
       email: ['', [Validators.required, Validators.email]],
-      address: ['', [Validators.required]]
+      address: ['', Validators.required]
     });
   }
 
-  ngOnInit(): void {
-    this.route.params.subscribe(params => {
-      if (params['id']) {
-        this.isEditMode = true;
-        this.patientId = params['id'];
-        this.loadPatientData();
+  async ngOnInit(): Promise<void> {
+    const idParam = this.route.snapshot.paramMap.get('id');
+    if (idParam) {
+      const parsedId = parseInt(idParam, 10);
+      this.patientId = parsedId;
+      this.isEditMode = true;
+      try {
+        const patient = await this.patientService.getPatient(parsedId);
+        if (patient) {
+          this.patientForm.patchValue(patient);
+        }
+      } catch (error) {
+        this.showErrorMessage('Failed to load patient data');
       }
+    }
+  }
+
+  async onSubmit() {
+    if (this.patientForm.valid) {
+      const patientData = this.patientForm.value;
+      try {
+        if (this.isEditMode && this.patientId !== null) {
+          await this.patientService.updatePatient(this.patientId, patientData);
+          this.showSuccessMessage('Patient updated successfully');
+        } else {
+          await this.patientService.createPatient(patientData);
+          this.showSuccessMessage('Patient added successfully');
+        }
+        this.router.navigate(['/patients']);
+      } catch (error) {
+        this.showErrorMessage('Error saving patient');
+        console.error('Error saving patient:', error);
+      }
+    }
+  }
+
+  private getErrorMessage(controlName: string): string {
+    const control = this.patientForm.get(controlName);
+    if (control?.hasError('required')) {
+      return `${controlName} is required`;
+    }
+    if (control?.hasError('email')) {
+      return 'Invalid email address';
+    }
+    if (control?.hasError('pattern')) {
+      return 'Invalid contact number';
+    }
+    return '';
+  }
+
+  private showSuccessMessage(message: string): void {
+    this.snackBar.open(message, 'Close', {
+      duration: 3000,
+      horizontalPosition: 'center',
+      verticalPosition: 'bottom'
     });
   }
 
-  loadPatientData(): void {
-    if (this.patientId) {
-      this.patientService.getPatient(this.patientId).subscribe({
-        next: (patient: Patient | undefined) => {
-          if (patient) {
-            this.patientForm.patchValue({
-              ...patient,
-              dateOfBirth: new Date(patient.dateOfBirth)
-            });
-          }
-        },
-        error: (error: Error) => {
-          console.error('Error loading patient:', error);
-          this.snackBar.open('Error loading patient data', 'Close', { duration: 3000 });
-        }
-      });
-    }
-  }
-
-  onSubmit(): void {
-    if (this.patientForm.valid) {
-      const patientData = {
-        ...this.patientForm.value,
-        dateOfBirth: this.patientForm.value.dateOfBirth.toISOString().split('T')[0]
-      };
-
-      const savePatient = async () => {
-        try {
-          if (this.isEditMode && this.patientId) {
-            await this.patientService.updatePatient(this.patientId, patientData);
-          } else {
-            await this.patientService.createPatient(patientData);
-          }
-          const message = this.isEditMode ? 'Patient updated successfully' : 'Patient created successfully';
-          this.snackBar.open(message, 'Close', { duration: 3000 });
-          this.router.navigate(['/patients']);
-        } catch (error) {
-          console.error('Error saving patient:', error);
-          this.snackBar.open('Error saving patient data', 'Close', { duration: 3000 });
-        }
-      };
-
-      savePatient();
-    } else {
-      this.markFormGroupTouched(this.patientForm);
-    }
+  private showErrorMessage(message: string): void {
+    this.snackBar.open(message, 'Close', {
+      duration: 5000,
+      horizontalPosition: 'center',
+      verticalPosition: 'bottom',
+      panelClass: ['error-snackbar']
+    });
   }
 
   private markFormGroupTouched(formGroup: FormGroup): void {

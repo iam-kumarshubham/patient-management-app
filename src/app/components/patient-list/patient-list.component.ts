@@ -1,44 +1,40 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Patient } from '../../models/patient.model';
-import { PatientService } from '../../services/patient.service';
-import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatSortModule } from '@angular/material/sort';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { Patient } from '../../models/patient.model';
+import { PatientService } from '../../services/patient.service';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-patient-list',
+  templateUrl: './patient-list.component.html',
+  styleUrls: ['./patient-list.component.scss'],
   standalone: true,
   imports: [
     CommonModule,
     RouterModule,
-    MatTableModule,
-    MatPaginatorModule,
-    MatSortModule,
-    MatProgressSpinnerModule,
-    MatButtonModule,
-    MatIconModule,
     MatFormFieldModule,
     MatInputModule,
-    MatDialogModule,
-    MatSnackBarModule
-  ],
-  templateUrl: './patient-list.component.html',
-  styleUrl: './patient-list.component.scss'
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    MatTableModule,
+    MatPaginatorModule,
+    MatSortModule
+  ]
 })
 export class PatientListComponent implements OnInit {
   displayedColumns: string[] = [
@@ -50,7 +46,7 @@ export class PatientListComponent implements OnInit {
     'email',
     'actions'
   ];
-  dataSource: MatTableDataSource<Patient>;
+  dataSource = new MatTableDataSource<Patient>();
   isLoading = true;
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
@@ -60,64 +56,82 @@ export class PatientListComponent implements OnInit {
     private patientService: PatientService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
-  ) {
-    this.dataSource = new MatTableDataSource<Patient>();
-  }
+  ) {}
 
   ngOnInit(): void {
     this.loadPatients();
-  }
-
-  loadPatients(): void {
-    this.isLoading = true;
-    this.patientService.getPatients().subscribe({
-      next: (patients) => {
-        this.dataSource.data = patients;
-        this.dataSource.paginator = this.paginator;
-        this.dataSource.sort = this.sort;
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Error loading patients:', error);
-        this.isLoading = false;
-      }
+    this.patientService.getPatients().subscribe(patients => {
+      this.dataSource.data = patients;
+      this.isLoading = false;
     });
   }
 
-  applyFilter(event: Event): void {
-    const filterValue = (event.target as HTMLInputElement).value;
-    this.dataSource.filter = filterValue.trim().toLowerCase();
-
-    if (this.dataSource.paginator) {
-      this.dataSource.paginator.firstPage();
+  async loadPatients(): Promise<void> {
+    this.isLoading = true;
+    try {
+      const patients = await this.patientService.getAllPatients();
+      this.dataSource.data = patients;
+      this.dataSource.paginator = this.paginator;
+      this.dataSource.sort = this.sort;
+    } catch (error) {
+      console.error('Error loading patients:', error);
+      this.showErrorMessage('Error loading patients');
+    } finally {
+      this.isLoading = false;
     }
   }
 
-  editPatient(patient: Patient): void {
-    // TODO: Implement edit functionality
-    console.log('Edit patient:', patient);
+  async applyFilter(event: Event): Promise<void> {
+    const filterValue = (event.target as HTMLInputElement).value;
+    if (filterValue) {
+      const filteredPatients = await this.patientService.searchPatients(filterValue);
+      this.dataSource.data = filteredPatients;
+    } else {
+      this.loadPatients();
+    }
   }
 
-  deletePatient(patient: Patient): void {
+  editPatient(id: number): void {
+    // Navigation will be handled by the router link in the template
+  }
+
+  deletePatient(id: number): void {
     const dialogRef = this.dialog.open(ConfirmDialogComponent, {
       data: {
-        title: 'Delete Patient',
-        message: `Are you sure you want to delete ${patient.firstName} ${patient.lastName}?`,
-        confirmText: 'Delete',
-        cancelText: 'Cancel'
+        title: 'Confirm Delete',
+        message: 'Are you sure you want to delete this patient?'
       }
     });
 
-    dialogRef.afterClosed().subscribe(result => {
+    dialogRef.afterClosed().subscribe(async (result) => {
       if (result) {
-        this.patientService.deletePatient(patient.id!).then(() => {
-          this.snackBar.open('Patient deleted successfully', 'Close', { duration: 3000 });
-          this.loadPatients();
-        }).catch(error => {
+        try {
+          await this.patientService.deletePatient(id);
+          this.showSuccessMessage('Patient deleted successfully');
+          await this.loadPatients();
+        } catch (error) {
           console.error('Error deleting patient:', error);
-          this.snackBar.open('Error deleting patient', 'Close', { duration: 3000 });
-        });
+          this.showErrorMessage('Error deleting patient');
+        }
       }
+    });
+  }
+
+  private showSuccessMessage(message: string): void {
+    this.snackBar.open(message, 'Close', {
+      duration: 3000,
+      horizontalPosition: 'end',
+      verticalPosition: 'top',
+      panelClass: ['success-snackbar']
+    });
+  }
+
+  private showErrorMessage(message: string): void {
+    this.snackBar.open(message, 'Close', {
+      duration: 3000,
+      horizontalPosition: 'end',
+      verticalPosition: 'top',
+      panelClass: ['error-snackbar']
     });
   }
 }

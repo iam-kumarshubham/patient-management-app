@@ -1,6 +1,6 @@
-<div class="container">
-  <div class="header">
-    <h1>Patient List</h1>
+<div class="patient-list-container">
+  <div class="header-row">
+    <h2>Patient List</h2>
     <button mat-raised-button color="primary" routerLink="/patients/new">
       <mat-icon>add</mat-icon>
       Add Patient
@@ -9,77 +9,73 @@
 
   <mat-form-field>
     <mat-label>Filter</mat-label>
-    <input matInput (keyup)="applyFilter($event)" placeholder="Ex. John" #input>
+    <input matInput (keyup)="applyFilter($event)" placeholder="Search patients..." #input>
   </mat-form-field>
 
   <div class="table-container">
-    @if (isLoading) {
-      <div class="loading-spinner">
-        <mat-spinner></mat-spinner>
-      </div>
-    } @else {
-      <table mat-table [dataSource]="dataSource" matSort>
-        <!-- First Name Column -->
-        <ng-container matColumnDef="firstName">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header> First Name </th>
-          <td mat-cell *matCellDef="let patient"> {{patient.firstName}} </td>
-        </ng-container>
+    <div *ngIf="isLoading" class="loading-spinner">
+      <mat-spinner></mat-spinner>
+    </div>
 
-        <!-- Last Name Column -->
-        <ng-container matColumnDef="lastName">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header> Last Name </th>
-          <td mat-cell *matCellDef="let patient"> {{patient.lastName}} </td>
-        </ng-container>
+    <table mat-table [dataSource]="dataSource" matSort>
+      <!-- First Name Column -->
+      <ng-container matColumnDef="firstName">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>First Name</th>
+        <td mat-cell *matCellDef="let patient">{{patient.firstName}}</td>
+      </ng-container>
 
-        <!-- Date of Birth Column -->
-        <ng-container matColumnDef="dateOfBirth">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header> Date of Birth </th>
-          <td mat-cell *matCellDef="let patient"> {{patient.dateOfBirth | date}} </td>
-        </ng-container>
+      <!-- Last Name Column -->
+      <ng-container matColumnDef="lastName">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Last Name</th>
+        <td mat-cell *matCellDef="let patient">{{patient.lastName}}</td>
+      </ng-container>
 
-        <!-- Gender Column -->
-        <ng-container matColumnDef="gender">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header> Gender </th>
-          <td mat-cell *matCellDef="let patient"> {{patient.gender}} </td>
-        </ng-container>
+      <!-- Date of Birth Column -->
+      <ng-container matColumnDef="dateOfBirth">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Date of Birth</th>
+        <td mat-cell *matCellDef="let patient">{{patient.dateOfBirth}}</td>
+      </ng-container>
 
-        <!-- Contact Number Column -->
-        <ng-container matColumnDef="contactNumber">
-          <th mat-header-cell *matHeaderCellDef> Contact Number </th>
-          <td mat-cell *matCellDef="let patient"> {{patient.contactNumber}} </td>
-        </ng-container>
+      <!-- Gender Column -->
+      <ng-container matColumnDef="gender">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Gender</th>
+        <td mat-cell *matCellDef="let patient">{{patient.gender}}</td>
+      </ng-container>
 
-        <!-- Email Column -->
-        <ng-container matColumnDef="email">
-          <th mat-header-cell *matHeaderCellDef> Email </th>
-          <td mat-cell *matCellDef="let patient"> {{patient.email}} </td>
-        </ng-container>
+      <!-- Contact Number Column -->
+      <ng-container matColumnDef="contactNumber">
+        <th mat-header-cell *matHeaderCellDef>Contact Number</th>
+        <td mat-cell *matCellDef="let patient">{{patient.contactNumber}}</td>
+      </ng-container>
 
-        <!-- Actions Column -->
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef> Actions </th>
-          <td mat-cell *matCellDef="let patient">
-            <button mat-icon-button color="primary" (click)="editPatient(patient)">
-              <mat-icon>edit</mat-icon>
-            </button>
-            <button mat-icon-button color="warn" (click)="deletePatient(patient)">
-              <mat-icon>delete</mat-icon>
-            </button>
-          </td>
-        </ng-container>
+      <!-- Email Column -->
+      <ng-container matColumnDef="email">
+        <th mat-header-cell *matHeaderCellDef>Email</th>
+        <td mat-cell *matCellDef="let patient">{{patient.email}}</td>
+      </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      <!-- Actions Column -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Actions</th>
+        <td mat-cell *matCellDef="let patient">
+          <button mat-icon-button color="primary" [routerLink]="['/patients', patient.id]">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button color="warn" (click)="deletePatient(patient.id)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
 
-        <!-- Row shown when there is no matching data. -->
-        <tr class="mat-row" *matNoDataRow>
-          <td class="mat-cell" colspan="7">
-            No data matching the filter "{{input.value}}"
-          </td>
-        </tr>
-      </table>
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
 
-      <mat-paginator [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of patients"></mat-paginator>
-    }
+      <!-- Row shown when there is no matching data. -->
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell" colspan="7">No data matching the filter "{{input.value}}"</td>
+      </tr>
+    </table>
+
+    <mat-paginator [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of patients"></mat-paginator>
   </div>
 </div>
